@@ -1,74 +1,113 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { onValue, ref } from "firebase/database";
+import React, { useEffect, useState } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { db } from "../../app/firebase/config";
+
+type AlertLevel = "high" | "medium" | "low";
+
+interface AlertItem {
+  id: string;
+  title: string;
+  message: string;
+  level: AlertLevel;
+}
 
 export default function AlertsScreen() {
-  const isDark = useColorScheme() === "dark";
-  const styles = createStyles(isDark);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
 
-  const alerts = [
-    {
-      title: "Dangerous fatigue detected",
-      time: "Just now",
-      color: "#FEE2E2",
-      action: "Pull over now",
-    },
-    {
-      title: "High migraine risk",
-      time: "5 minutes ago",
-      color: "#FDE68A",
-      action: "Reduce brightness",
-    },
-  ];
+  useEffect(() => {
+    const alertsRef = ref(db, "alerts/");
+    return onValue(alertsRef, snap => {
+      const val = snap.val();
+      if (!val) {
+        setAlerts([]);
+        return;
+      }
+      // val peut être un tableau ou un objet
+      if (Array.isArray(val)) {
+        setAlerts(val.filter(Boolean));
+      } else {
+        setAlerts(Object.values(val));
+      }
+    });
+  }, []);
+
+  const levelColor = (level: AlertLevel) => {
+    switch (level) {
+      case "high":
+        return "#FF4B5C";
+      case "medium":
+        return "#FF9F40";
+      default:
+        return "#4BC0C0";
+    }
+  };
+
+  const levelLabel = (level: AlertLevel) => {
+    switch (level) {
+      case "high":
+        return "Critique";
+      case "medium":
+        return "Alerte";
+      default:
+        return "Info";
+    }
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Alerts</Text>
-      <Text style={styles.subtitle}>Your latest health warnings</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.header}>Alertes</Text>
+      <Text style={styles.subtitle}>Événements détectés par les capteurs</Text>
 
-      {alerts.map((alert, idx) => (
-        <View key={idx} style={[styles.alertCard, { backgroundColor: alert.color }]}>
-          <Text style={styles.alertTitle}>{alert.title}</Text>
-          <Text style={styles.alertTime}>{alert.time}</Text>
-          <Text style={styles.alertAction}>{alert.action}</Text>
-        </View>
-      ))}
+      {alerts.length === 0 && (
+        <Text style={{ marginTop: 20, color: "#666" }}>
+          Aucune alerte pour le moment 🎉
+        </Text>
+      )}
+
+      {alerts.map(alert => {
+        const c = levelColor(alert.level);
+        return (
+          <View
+            key={alert.id}
+            style={[styles.alertCard, { borderLeftColor: c, backgroundColor: c + "11" }]}
+          >
+            <Text style={[styles.alertLevel, { color: c }]}>
+              {levelLabel(alert.level)}
+            </Text>
+            <Text style={styles.alertTitle}>{alert.title}</Text>
+            <Text style={styles.alertMessage}>{alert.message}</Text>
+          </View>
+        );
+      })}
     </ScrollView>
   );
 }
 
-function createStyles(isDark: boolean) {
-  return StyleSheet.create({
-    container: {
-      padding: 20,
-      backgroundColor: isDark ? "#0B0F19" : "#F3F4F6",
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: "800",
-      color: isDark ? "#FFFFFF" : "#111827",
-    },
-    subtitle: {
-      color: "#9CA3AF",
-      marginBottom: 20,
-    },
-    alertCard: {
-      padding: 16,
-      borderRadius: 18,
-      marginBottom: 14,
-    },
-    alertTitle: {
-      fontSize: 16,
-      fontWeight: "700",
-      color: "#111827",
-    },
-    alertTime: {
-      marginTop: 4,
-      color: "#4B5563",
-    },
-    alertAction: {
-      marginTop: 8,
-      color: "#B91C1C",
-      fontWeight: "700",
-    },
-  });
-}
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#F6F5FB", padding: 10 },
+  header: { fontSize: 28, fontWeight: "700", color: "#3A2FA0" },
+  subtitle: { color: "#837FA0", marginBottom: 15 },
+
+  alertCard: {
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 10,
+    borderLeftWidth: 5
+  },
+  alertLevel: {
+    fontWeight: "700",
+    fontSize: 13,
+    textTransform: "uppercase"
+  },
+  alertTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#333",
+    marginTop: 4
+  },
+  alertMessage: {
+    color: "#555",
+    marginTop: 4
+  }
+});

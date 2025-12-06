@@ -1,219 +1,161 @@
 import { onValue, ref } from "firebase/database";
-import React, { useEffect } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
-import Card from "../components/Card";
-import Section from "../components/Section";
-import { db } from "../firebase/config";
-import { useRealtimeStats } from "../hooks/useRealtimeStats";
+import React, { useEffect, useState } from "react";
+import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LineChart } from "react-native-chart-kit";
+import { db } from "../../app/firebase/config";
 
-export default function Home() {
-  const stats = useRealtimeStats();
+const screenWidth = Dimensions.get("window").width;
 
-  const global = stats?.global;
-  const quick = stats?.quickSummary;
-  const fatigueTrend: number[] = stats?.fatigueTrend ?? [30, 55, 45, 70, 40, 65];
-  const stressTrend: number[] = stats?.stressTrend ?? [20, 40, 35, 60, 30, 50];
-  const sleep = stats?.sleep;
-  const advice = stats?.advice ?? [];
+interface UserStats {
+  global: number;
+  energy: number;
+  recovery: number;
+  sleepHours: number;
+  fatigueTrend: number[];
+  heartRateTrend: number[];
+}
+
+export default function HomeScreen() {
+  const [stats, setStats] = useState<UserStats | null>(null);
+
+useEffect(() => {
+  const refStats = ref(db, "userStats/");
+
+  console.log("➡️ Firebase DB object:", db); // Vérifie si Firebase est bien chargé
+
+  return onValue(refStats, snap => {
+    console.log("➡️ RAW SNAPSHOT:", snap);
+    console.log("➡️ SNAPSHOT VALUE:", snap.val()); // Vérifie ce que Firebase renvoie
+
+    setStats(snap.val());
+  });
+}, []);
+
+
+  if (!stats) return <Text style={{ marginTop: 50 }}>Chargement...</Text>;
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {/* HEADER GRADIENT-LIKE */}
-      <View style={styles.headerCard}>
-        <View>
-          <Text style={styles.appName}>MindOra</Text>
-          <Text style={styles.appSubtitle}>{global?.mood ?? "Bienvenue"}</Text>
+      {/* HEADER */}
+      <View style={styles.headerBox}>
+        <Text style={styles.headerTitle}>MindOra</Text>
+        <Text style={styles.headerSubtitle}>Bienvenue 👋</Text>
+
+        <View style={styles.globalBox}>
+          <Text style={styles.globalTitle}>État global</Text>
+          <Text style={styles.globalValue}>{stats.global}%</Text>
+          <Text style={styles.globalDesc}>Bon équilibre</Text>
         </View>
-        <View style={styles.profileCircle} />
       </View>
 
-      {/* GLOBAL SCORE */}
-      <View style={styles.globalRow}>
-        <Card
-          title="État global"
-          value={`${global?.score ?? 80}%`}
-          subtitle={global?.status ?? "Bon équilibre"}
-          bg="#EEF2FF"
-          color="#4F46E5"
-        />
+      {/* QUICK SUMMARY */}
+      <Text style={styles.sectionTitle}>Résumé rapide</Text>
+
+      <View style={styles.row}>
+        <Card label="Énergie" value={`${stats.energy}/10`} color="#7ED957" />
+        <Card label="Récupération" value={`${stats.recovery}/10`} color="#5DA7F3" />
+        <Card label="Sommeil" value={`${stats.sleepHours} h`} color="#D58FF8" />
       </View>
 
-      {/* RÉSUMÉ RAPIDE */}
-      <Section>Résumé rapide</Section>
-      <View style={styles.quickRow}>
-        <Card
-          title="Énergie"
-          value={`${quick?.energyScore ?? 8}/10`}
-          bg="#ECFDF5"
-          color="#16A34A"
-        />
-        <Card
-          title="Récupération"
-          value={`${quick?.recoveryScore ?? 7}/10`}
-          bg="#EFF6FF"
-          color="#2563EB"
-        />
-        <Card
-          title="Sommeil"
-          value={`${quick?.sleepHours ?? 7} h`}
-          bg="#FDF2FF"
-          color="#A855F7"
-        />
-      </View>
+      {/* GRAPHE DE FATIGUE */}
+      <Text style={styles.sectionTitle}>Niveau de fatigue</Text>
 
-      {/* NIVEAU DE FATIGUE – bar chart simple */}
-      <Section>Niveau de fatigue</Section>
-      <Card subtitle="Sur la journée">
-        <View style={styles.barChart}>
-          {fatigueTrend.map((v, i) => (
-            <View key={i} style={[styles.bar, { height: v * 1.2 }]} />
-          ))}
-        </View>
-      </Card>
-
-      {/* NIVEAU DE STRESS – line (en barres fines) */}
-      <Section>Niveau de stress</Section>
-      <Card subtitle="Tendance récente">
-        <View style={styles.stressRow}>
-          {stressTrend.map((v, i) => (
-            <View key={i} style={[styles.stressDot, { height: v }]} />
-          ))}
-        </View>
-      </Card>
-
-      {/* QUALITÉ DU SOMMEIL */}
-      <Section>Qualité du sommeil</Section>
-      <Card
-        title={sleep?.duration ?? "7h 23m"}
-        value={`${sleep?.qualityScore ?? 82}%`}
-        subtitle={`Efficacité: ${sleep?.efficiency ?? 92}%  • Profond: ${sleep?.deep ?? 2.3}h  REM: ${
-          sleep?.rem ?? 1.5
-        }h`}
-        bg="#EEF2FF"
-        color="#4C1D95"
+      <LineChart
+        data={{
+          labels: ["8h", "10h", "12h", "14h", "16h"],
+          datasets: [{ data: stats.fatigueTrend }]
+        }}
+        width={screenWidth - 40}
+        height={220}
+        chartConfig={{
+          backgroundGradientFrom: "#fff",
+          backgroundGradientTo: "#fff",
+          decimalPlaces: 0,
+          color: () => "#FF6C37",
+          labelColor: () => "#999",
+        }}
+        bezier
+        style={styles.chart}
       />
 
-      {/* CONSEILS PERSONNALISÉS */}
-      <Section>Conseils personnalisés</Section>
-      {advice.map((a: any) => (
-        <View
-          key={a.id}
-          style={[
-            styles.adviceCard,
-            a.level === "high"
-              ? styles.adviceHigh
-              : a.level === "medium"
-              ? styles.adviceMedium
-              : styles.adviceInfo,
-          ]}
-        >
-          <Text style={styles.adviceTitle}>{a.title}</Text>
-          <Text style={styles.adviceText}>{a.description}</Text>
-        </View>
-      ))}
+      {/* GRAPHE CARDIAQUE */}
+      <Text style={styles.sectionTitle}>Rythme cardiaque</Text>
 
-      {/* ESPACE BAS de page */}
-      <View style={{ height: 40 }} />
+      <LineChart
+        data={{
+          labels: ["8h", "10h", "12h", "14h", "16h"],
+          datasets: [{ data: stats.heartRateTrend }]
+        }}
+        width={screenWidth - 40}
+        height={220}
+        chartConfig={{
+          backgroundGradientFrom: "#fff",
+          backgroundGradientTo: "#fff",
+          decimalPlaces: 0,
+          color: () => "#E63946",
+          labelColor: () => "#999",
+        }}
+        bezier
+        style={styles.chart}
+      />
+
     </ScrollView>
   );
 }
 
+function Card({ label, value, color }: any) {
+  return (
+    <View style={[styles.card, { backgroundColor: color + "33" }]}>
+      <Text style={[styles.cardLabel, { color }]}>{label}</Text>
+      <Text style={styles.cardValue}>{value}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-    backgroundColor: "#F9FAFB",
-  },
+  container: { padding: 20, backgroundColor: "#F4F5FA" },
 
-  /* HEADER */
-  headerCard: {
-    padding: 16,
+  headerBox: {
+    backgroundColor: "#5A3FFF",
+    padding: 20,
     borderRadius: 20,
-    backgroundColor: "#4F46E5",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  appName: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "800",
-  },
-  appSubtitle: {
-    color: "#E5E7EB",
-    marginTop: 4,
-  },
-  profileCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#A5B4FC",
-  },
+  headerTitle: { color: "#fff", fontSize: 28, fontWeight: "800" },
+  headerSubtitle: { color: "#ddd", fontSize: 16 },
 
-  globalRow: {
-    marginTop: 8,
+  globalBox: {
+    marginTop: 20,
+    backgroundColor: "#ffffff22",
+    padding: 15,
+    borderRadius: 15
   },
+  globalTitle: { color: "#eee", fontSize: 14 },
+  globalValue: { color: "#fff", fontSize: 32, fontWeight: "700" },
+  globalDesc: { color: "#dedede" },
 
-  quickRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-
-  /* FATIGUE BAR CHART */
-  barChart: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    height: 120,
-    justifyContent: "space-between",
-  },
-  bar: {
-    width: 16,
-    borderRadius: 8,
-    backgroundColor: "#F97316",
-  },
-
-  /* STRESS TREND */
-  stressRow: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    height: 80,
-  },
-  stressDot: {
-    width: 8,
-    marginHorizontal: 4,
-    borderRadius: 4,
-    backgroundColor: "#EF4444",
-  },
-
-  /* ADVICE */
-  adviceCard: {
-    padding: 14,
-    borderRadius: 16,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 20,
     marginBottom: 10,
   },
-  adviceTitle: {
-    fontWeight: "700",
-    marginBottom: 4,
-    color: "#111827",
+
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  adviceText: {
-    color: "#374151",
+
+  card: {
+    width: "32%",
+    padding: 15,
+    borderRadius: 15,
   },
-  adviceInfo: {
-    backgroundColor: "#E0F2FE",
-  },
-  adviceMedium: {
-    backgroundColor: "#FEF9C3",
-  },
-  adviceHigh: {
-    backgroundColor: "#FEE2E2",
+  cardLabel: { fontSize: 14, fontWeight: "600" },
+  cardValue: { fontSize: 20, fontWeight: "800", marginTop: 5 },
+
+  chart: {
+    borderRadius: 15,
+    marginVertical: 10,
   },
 });
-
-useEffect(() => {
-  const testRef = ref(db, "test");
-
-  onValue(testRef, (snapshot) => {
-    console.log("🔥 Firebase says:", snapshot.val());
-  });
-}, []);

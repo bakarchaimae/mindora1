@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "169173920801",
+    "firebase_url": "https://heartguard-cfc48-default-rtdb.firebaseio.com",
+    "project_id": "heartguard-cfc48",
+    "storage_bucket": "heartguard-cfc48.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:169173920801:android:0853a4f9c4b5c673ac8760",
+        "android_client_info": {
+          "package_name": "aa.aaa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCM5WbNT7E1ECYEk9HLl6Wvd0EwfjkKuP0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
